@@ -14,6 +14,15 @@
 int main(int argc, char *argv[]) {
 
   QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+  
+  // Enable Wayland support
+  QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+
+  // Try Wayland if available
+  if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+      // Try Wayland first, fall back to other platforms
+      qputenv("QT_QPA_PLATFORM", "wayland;xcb;wayland-egl;x11");
+  }
 
 #ifdef QT_DEBUG
   qputenv("QTWEBENGINE_CHROMIUM_FLAGS",
@@ -237,7 +246,7 @@ int main(int argc, char *argv[]) {
         }
       });
 
-  foreach (QString argStr, instance.arguments()) {
+  for (const QString& argStr : instance.arguments()) {
     if (argStr.contains("whatsapp://")) {
       qInfo() << "cmd:"
               << "x-schema-handler";

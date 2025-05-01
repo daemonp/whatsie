@@ -21,7 +21,7 @@ class Utils : public QObject {
   Q_OBJECT
 
 public:
-  Utils(QObject *parent = 0);
+  Utils(QObject *parent = nullptr);
   virtual ~Utils();
   static QString getInstallType();
   static QString refreshCacheSize(const QString cache_dir);
@@ -41,7 +41,8 @@ public:
   static QString genRand(int length, bool useUpper = true, bool useLower = true,
                          bool useDigits = true);
   static QString detectDesktopEnvironment();
-private slots:
+  static bool isRunningWayland();
+private:
   // use refreshCacheSize
   static quint64 dir_size(const QString &directory);
 };

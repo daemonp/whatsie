@@ -77,7 +77,7 @@ public:
                            .settings()
                            .value("notificationTimeOut", 9000)
                            .toInt(),
-                       this, [=]() { onClosed(); });
+                       this, &NotificationPopup::onClosed);
 
     animateIn(screen);
   }
@@ -94,26 +94,43 @@ public:
     m_title.setText("<b>" + notification->title() + "</b>");
     m_message.setText(notification->message());
     m_icon.setPixmap(QPixmap::fromImage(notification->icon())
-                         .scaledToHeight(m_icon.height()));
+                         .scaledToHeight(m_icon.height(), Qt::SmoothTransformation));
 
     notification->show();
     this->adjustSize();
 
     connect(notification.get(), &QWebEngineNotification::closed, this,
             &NotificationPopup::onClosed);
+    // Use a single timer to avoid potential double-close issues
     QTimer::singleShot(SettingsManager::instance()
                            .settings()
                            .value("notificationTimeOut", 9000)
                            .toInt(),
-                       notification.get(), [&]() { onClosed(); });
+                       this, &NotificationPopup::onClosed);
 
     animateIn(screen);
   }
 
-protected slots:
+private slots:
   void animateIn(QScreen *screen) {
       if (!screen) {
-          return;
+          // Try to get the screen containing the cursor on Wayland
+          QPoint globalCursorPos = QCursor::pos();
+          #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+          screen = QGuiApplication::screenAt(globalCursorPos);
+          #else
+          // Fallback for older Qt versions
+          screen = QGuiApplication::primaryScreen();
+          #endif
+          
+          // If still null, use primary screen
+          if (!screen) {
+              screen = QGuiApplication::primaryScreen();
+          }
+          
+          if (!screen) {
+              return;
+          }
       }
 
       QRect screenRect = screen->availableGeometry();
@@ -135,12 +152,16 @@ protected slots:
     auto y = this->pos().y();
     QPropertyAnimation *a = new QPropertyAnimation(this, "pos");
     a->setDuration(150);
-    a->setStartValue(QApplication::desktop()->mapToGlobal(QPoint(x, y)));
-    a->setEndValue(QApplication::desktop()->mapToGlobal(
-        QPoint(x, -(this->height() + 20))));
+    
+    // Use screen-relative positioning for Wayland compatibility
+    QPoint startPos = this->pos();
+    QPoint endPos = QPoint(x, -(this->height() + 20));
+    
+    a->setStartValue(startPos);
+    a->setEndValue(endPos);
     a->setEasingCurve(QEasingCurve::Linear);
 
-    connect(a, &QPropertyAnimation::finished, this, [=]() {
+    connect(a, &QPropertyAnimation::finished, this, [this]() {
       if (notification) {
         notification->close();
         notification.reset();

@@ -133,8 +133,10 @@ QString Utils::convertSectoDay(qint64 secs) {
  */
 QString
 Utils::returnPath(QString pathname,
-                  QString standardLocation = QStandardPaths::writableLocation(
-                      QStandardPaths::DataLocation)) {
+                  QString standardLocation) {
+  if (standardLocation.isEmpty()) {
+    standardLocation = QStandardPaths::writableLocation(QStandardPaths::DataLocation);
+  }
   QChar sepe = QDir::separator();
   QDir d(standardLocation + sepe + pathname);
   d.mkpath(standardLocation + sepe + pathname);
@@ -297,6 +299,8 @@ QString Utils::appDebugInfo() {
                    systemInfo + "</li>"
             << "<li><b>" + QObject::tr("Architecture") + ":</b>        " +
                    architecture + "</li>"
+            << "<li><b>" + QObject::tr("Wayland") + ":</b>        " +
+                   (Utils::isRunningWayland() ? "Yes" : "No") + "</li>"
             << "<li><b>" + QObject::tr("Install mode") + ":</b>        " +
                    QString(installMode.trimmed().isEmpty() ? "Unknown"
                                                            : installMode) +
@@ -384,8 +388,7 @@ void Utils::desktopOpenUrl(const QString &filePathStr) {
 
   QProcess *xdg_open = new QProcess;
   QObject::connect(xdg_open,
-                   static_cast<void (QProcess::*)(int, QProcess::ExitStatus)>(
-                       &QProcess::finished),
+                   QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
                    [=](int exitCode, QProcess::ExitStatus exitStatus) {
                      Q_UNUSED(exitCode);
                      xdg_open->close();
@@ -432,4 +435,21 @@ QString Utils::detectDesktopEnvironment() {
     }
 
     return "Unknown Desktop Environment";
+}
+
+bool Utils::isRunningWayland() {
+    // Check if running on Wayland
+    QString platform = qgetenv("QT_QPA_PLATFORM");
+    if (platform.startsWith("wayland")) {
+        return true;
+    }
+    
+    // Check XDG_SESSION_TYPE
+    QString sessionType = qgetenv("XDG_SESSION_TYPE");
+    if (sessionType == "wayland") {
+        return true;
+    }
+    
+    // Check if WAYLAND_DISPLAY is set
+    return !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY");
 }
